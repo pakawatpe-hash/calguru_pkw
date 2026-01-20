@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 export default function Dashboard({ data }) {
+  // 1. โหลดข้อมูลเก่าจาก LocalStorage
   const [eaten, setEaten] = useState(() => {
     const saved = localStorage.getItem("daily_eaten_record_gemini");
     return saved ? JSON.parse(saved) : { cal: 0, p: 0, c: 0, f: 0 };
@@ -12,7 +13,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // 🔑 API KEY ของคุณ (ใส่ไว้ให้แล้ว)
+  // 🔑 API KEY ของคุณ
   const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -31,23 +32,21 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 🔥 PROMPT ขั้นเทพ: สั่งให้คิดวิเคราะห์ตามภาพจริงแบบละเอียด (Chain of Thought)
+        // 🔥 แก้ไข PROMPT: สั่งให้ตอบเป็นภาษาไทยเท่านั้น (Respond in Thai)
         const prompt = `
-          You are an expert nutritionist. Analyze this food image strictly based on visual data.
+          Analyze this food image.
+          1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
+          2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
+          3. Calculate total calories, protein, carbs, and fat.
           
-          Step 1: Identify every visible component in the dish (e.g., rice, specific meat type, egg, sauce, vegetables).
-          Step 2: Estimate the weight/volume of each component based on portion size shown in the image (e.g., Rice ~150g, Chicken ~100g).
-          Step 3: Calculate calories and macros for each component.
-          Step 4: Sum them up for the total.
-
-          Return ONLY a raw JSON object (no markdown) with this structure:
+          Return ONLY a raw JSON object with this structure:
           {
-            "name": "Name of the dish (Thai/English)",
-            "breakdown": "Brief list of components and estimated weights (e.g., Rice 150g (200k), Fried Egg 1 (120k), Pork 80g (250k))",
-            "cal": total_calories_number,
-            "p": total_protein_number,
-            "c": total_carbs_number,
-            "f": total_fat_number
+            "name": "ชื่อเมนู (ภาษาไทย)",
+            "breakdown": "รายการส่วนประกอบและปริมาณ (เขียนเป็นภาษาไทย เช่น ข้าวสวย 2 ทัพพี, ไข่ดาว 1 ฟอง)",
+            "cal": number,
+            "p": number,
+            "c": number,
+            "f": number
           }
         `;
 
@@ -77,8 +76,8 @@ export default function Dashboard({ data }) {
         if (nutrition.error) {
           alert("AI มองไม่เห็นอาหารในภาพครับ");
         } else {
-          // โชว์ให้เห็นเลยว่า AI คิดมาจากอะไร
-          alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์จากภาพ:\n${nutrition.breakdown}\n\n🔥 รวมพลังงาน: ${nutrition.cal} kcal\n(P: ${nutrition.p}g | C: ${nutrition.c}g | F: ${nutrition.f}g)`);
+          // 🇹🇭 แสดงผลเป็นภาษาไทย
+          alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal\n(โปรตีน: ${nutrition.p}g | คาร์บ: ${nutrition.c}g | ไขมัน: ${nutrition.f}g)`);
 
           setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -108,7 +107,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI Pro)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI ไทย)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -141,8 +140,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>🧠</span>
-        {isScanning ? "กำลังแยกส่วนประกอบ..." : "วิเคราะห์เจาะลึก"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>🇹🇭</span>
+        {isScanning ? "กำลังวิเคราะห์ (ภาษาไทย)..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
@@ -182,4 +181,4 @@ const cardItem = { backgroundColor: "white", padding: "16px", borderRadius: "20p
 const dot = { width: "8px", height: "8px", borderRadius: "50%", marginBottom: "8px" };
 const barBg = { width: "100%", height: "4px", backgroundColor: "#F0F0F0", borderRadius: "2px", overflow: "hidden" };
 const barFill = { height: "100%", transition: "0.5s" };
-const fabStyle = { position: "fixed", bottom: "30px", left: "50%", transform: "translateX(-50%)", width: "85%", maxWidth: "340px", backgroundColor: "#333", color: "white", padding: "18px", borderRadius: "20px", border: "none", fontWeight: "700", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 10px 20px rgba(0,0,0,0.2)" };
+const fabStyle = { position: "fixed", bottom: "30px", left: "50%", transform: "translateX(-50%)", width: "85%", maxWidth: "340px", backgroundColor: "#FF7A30", color: "white", padding: "18px", borderRadius: "20px", border: "none", fontWeight: "700", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 10px 20px rgba(0,0,0,0.2)" };
