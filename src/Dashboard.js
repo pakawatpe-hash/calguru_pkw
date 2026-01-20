@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 
 export default function Dashboard({ data }) {
-  // 1. โหลดข้อมูลเก่าจาก LocalStorage
   const [eaten, setEaten] = useState(() => {
     const saved = localStorage.getItem("daily_eaten_record_gemini");
     return saved ? JSON.parse(saved) : { cal: 0, p: 0, c: 0, f: 0 };
@@ -13,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // 🔑 API KEY ของคุณ
+  // API Key เดิมของคุณ
   const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -32,27 +31,20 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 🔥 PROMPT สั่งให้ AI ตอบเป็นภาษาไทย
+        // ใช้ Prompt ภาษาไทย
         const prompt = `
           Analyze this food image.
           1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
           2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat based on visual portion.
+          3. Calculate total calories, protein, carbs, and fat.
           
-          Return ONLY a raw JSON object with this structure:
-          {
-            "name": "ชื่อเมนู (ภาษาไทย)",
-            "breakdown": "รายการส่วนประกอบและปริมาณ (ภาษาไทย)",
-            "cal": number,
-            "p": number,
-            "c": number,
-            "f": number
-          }
+          Return ONLY a raw JSON object:
+          { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
         `;
 
-        // ✅ แก้ไข URL ตรงนี้เป็น gemini-1.5-flash-latest เพื่อแก้ Error 404
+        // 🔥 กลับมาใช้โมเดลมาตรฐาน gemini-1.5-flash (ตัวเสถียรสุด)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -63,37 +55,38 @@ export default function Dashboard({ data }) {
                   { inline_data: { mime_type: file.type, data: base64Data } }
                 ]
               }],
-               generationConfig: {
-                  responseMimeType: "application/json"
-               }
+               generationConfig: { responseMimeType: "application/json" }
             })
           }
         );
 
-        if (!response.ok) {
-           throw new Error(`Server responded with ${response.status}`);
+        const result = await response.json();
+
+        // 🚨 Debug: ถ้ามี Error จาก Google ให้ฟ้องออกมาเลย
+        if (!response.ok || result.error) {
+           const errMsg = result.error ? result.error.message : "Unknown Error";
+           alert(`AI Error (${response.status}): ${errMsg}`);
+           throw new Error(errMsg);
         }
 
-        const result = await response.json();
         const textResponse = result.candidates[0].content.parts[0].text;
         const nutrition = JSON.parse(textResponse);
 
-        if (nutrition.error) {
-          alert("AI มองไม่เห็นอาหารในภาพครับ");
-        } else {
-          alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal\n(P: ${nutrition.p}g | C: ${nutrition.c}g | F: ${nutrition.f}g)`);
+        alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal`);
 
-          setEaten(prev => ({
+        setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
             p: prev.p + Math.round(nutrition.p),
             c: prev.c + Math.round(nutrition.c),
             f: prev.f + Math.round(nutrition.f),
-          }));
-        }
+        }));
 
       } catch (error) {
         console.error("Gemini Error:", error);
-        alert(`เกิดข้อผิดพลาด: ${error.message} (ลองถ่ายใหม่ดูครับ)`);
+        // ถ้าเป็น 404 แสดงว่า URL ผิด, ถ้า 400 แปลว่ารูปมีปัญหา
+        if (!error.message.includes("AI Error")) {
+            alert(`ระบบขัดข้อง: ${error.message}`);
+        }
       } finally {
         setIsScanning(false);
       }
@@ -106,6 +99,7 @@ export default function Dashboard({ data }) {
     }
   };
 
+  // ... (ส่วน Return UI เหมือนเดิมเป๊ะ ก๊อปอันเก่ามาวางต่อได้เลย หรือจะให้ผมพิมพ์ให้ครบก็ได้ครับ) ...
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
@@ -145,7 +139,7 @@ export default function Dashboard({ data }) {
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
         <span style={{ fontSize: "24px", marginRight: "10px" }}>🇹🇭</span>
-        {isScanning ? "กำลังวิเคราะห์ (ภาษาไทย)..." : "ถ่ายรูปอาหาร"}
+        {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
@@ -160,7 +154,7 @@ export default function Dashboard({ data }) {
   );
 }
 
-// --- Styles ---
+// Styles
 const resetBtnStyle = { backgroundColor: "#f0f0f0", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: "600", color: "#666", cursor: "pointer" };
 function MacroCard({ label, eaten, target, color, unit }) {
   const barWidth = (eaten / target) * 100;
