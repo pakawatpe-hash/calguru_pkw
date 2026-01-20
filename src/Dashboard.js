@@ -41,9 +41,9 @@ export default function Dashboard({ data }) {
           { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
         `;
 
-        // 🟢 แก้ไขชื่อรุ่นเป็น 'gemini-1.5-flash-001' (ตัวเสถียรที่สุด)
+        // 🟢 เปลี่ยนมาใช้ 'gemini-1.5-pro' (ตัวเทพที่ใช้ใน Dr.Pharma)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -101,7 +101,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI ไทย)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Pro AI)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -134,8 +134,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>🇹🇭</span>
-        {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>💊</span>
+        {isScanning ? "กำลังวิเคราะห์ (Pro)..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
