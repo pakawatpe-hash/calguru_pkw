@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // Key ของพี่ตัวล่าสุด
+  // Key ล่าสุดของพี่
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -31,22 +31,23 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 📝 Prompt สำหรับ Gemini Pro (สั่งให้ตอบเป็น Pattern ชัดๆ)
         const prompt = `
-          Look at this food image. Identify the Thai dish name and estimate nutrition.
-          Please reply in this exact format:
-          Name: [Thai Dish Name]
-          Cal: [Total Calories Number]
-          Protein: [Grams Number]
-          Carbs: [Grams Number]
-          Fat: [Grams Number]
-          Desc: [Short description in Thai]
+          Analyze this food image.
+          Identify the dish name in THAI (ชื่อเมนู).
+          Estimate calories, protein, carbs, and fat.
+          
+          Reply format:
+          Dish: [Dish Name]
+          Cal: [Number]
+          Protein: [Number]
+          Carbs: [Number]
+          Fat: [Number]
+          Breakdown: [Short description]
         `;
 
-        // 🟢 เปลี่ยนโมเดลเป็น 'gemini-pro' (ตัว Classic ที่สุด)
-        // 🟢 ตัด generationConfig ทิ้ง เพื่อลดโอกาส Error
+        // 🟢 แก้ไขจุดตาย: เปลี่ยนจาก v1beta เป็น v1 (ตัวเสถียร)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -65,41 +66,32 @@ export default function Dashboard({ data }) {
 
         if (!response.ok || result.error) {
            const errMsg = result.error ? result.error.message : "Unknown Error";
-           // ถ้ายัง Error 404 อีก แสดงว่าเป็นที่ Key ไม่เปิด API แล้วครับ
            alert(`AI Error (${response.status}): ${errMsg}`);
            throw new Error(errMsg);
         }
 
-        // เช็คว่า AI ตอบกลับมาไหม
-        if (!result.candidates || !result.candidates[0].content) {
-            alert("AI ไม่ตอบกลับ (อาจจะมองไม่เห็นรูป)");
-            return;
-        }
-
         const textResponse = result.candidates[0].content.parts[0].text;
         
-        // 🛠️ ตัวแกะข้อความ (Manual Parser)
-        const extract = (key) => {
-            const regex = new RegExp(`${key}:\\s*(.+)`, "i");
+        // Manual Parser (แกะค่าเอง ไม่ง้อ JSON)
+        const extractValue = (keyword) => {
+            const regex = new RegExp(`${keyword}:\\s*([\\d\\.]+)`, "i");
             const match = textResponse.match(regex);
-            return match ? match[1].trim() : null;
+            return match ? parseFloat(match[1]) : 0;
         };
 
-        const extractNum = (key) => {
-            const val = extract(key);
-            return val ? parseFloat(val.replace(/[^0-9.]/g, "")) : 0;
-        };
+        const nameMatch = textResponse.match(/Dish:\s*(.+)/i);
+        const breakdownMatch = textResponse.match(/Breakdown:\s*(.+)/i);
 
         const nutrition = {
-            name: extract("Name") || "อาหาร (AI)",
-            desc: extract("Desc") || "วิเคราะห์สำเร็จ",
-            cal: extractNum("Cal"),
-            p: extractNum("Protein"),
-            c: extractNum("Carbs"),
-            f: extractNum("Fat")
+            name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
+            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์โดย AI",
+            cal: extractValue("Cal"),
+            p: extractValue("Protein"),
+            c: extractValue("Carbs"),
+            f: extractValue("Fat")
         };
 
-        alert(`✅ เรียบร้อย!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal\n(P:${nutrition.p} C:${nutrition.c} F:${nutrition.f})`);
+        alert(`✅ เรียบร้อย!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal`);
 
         setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -127,7 +119,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI Classic)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (API v1)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -160,8 +152,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>📷</span>
-        {isScanning ? "กำลังวิเคราะห์ (Classic)..." : "ถ่ายรูปอาหาร"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>⚡</span>
+        {isScanning ? "กำลังวิเคราะห์ (v1)..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
