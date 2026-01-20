@@ -13,7 +13,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // 🔑 API KEY ของคุณ (ใช้ตัวเดิม)
+  // 🔑 API KEY ของคุณ
   const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -37,7 +37,7 @@ export default function Dashboard({ data }) {
           Analyze this food image.
           1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
           2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat.
+          3. Calculate total calories, protein, carbs, and fat based on visual portion.
           
           Return ONLY a raw JSON object with this structure:
           {
@@ -50,7 +50,7 @@ export default function Dashboard({ data }) {
           }
         `;
 
-        // 🛠️ แก้ไขจุดที่ Error 404: เปลี่ยนชื่อโมเดลเป็น 'gemini-1.5-flash-latest'
+        // ✅ แก้ไข URL ตรงนี้เป็น gemini-1.5-flash-latest เพื่อแก้ Error 404
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
           {
@@ -160,7 +160,7 @@ export default function Dashboard({ data }) {
   );
 }
 
-// --- Styles (เหมือนเดิม) ---
+// --- Styles ---
 const resetBtnStyle = { backgroundColor: "#f0f0f0", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: "600", color: "#666", cursor: "pointer" };
 function MacroCard({ label, eaten, target, color, unit }) {
   const barWidth = (eaten / target) * 100;
