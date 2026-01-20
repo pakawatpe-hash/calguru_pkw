@@ -31,20 +31,19 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // ใช้ Prompt ภาษาไทย
         const prompt = `
           Analyze this food image.
           1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
           2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat.
+          3. Calculate total calories, protein, carbs, and fat based on visual portion.
           
           Return ONLY a raw JSON object:
           { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
         `;
 
-        // 🔥 กลับมาใช้โมเดลมาตรฐาน gemini-1.5-flash (ตัวเสถียรสุด)
+        // 🟢 แก้ไขจุดตาย: เปลี่ยนเป็น 'gemini-1.5-flash-latest' ให้ชัวร์ที่สุด
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -62,7 +61,6 @@ export default function Dashboard({ data }) {
 
         const result = await response.json();
 
-        // 🚨 Debug: ถ้ามี Error จาก Google ให้ฟ้องออกมาเลย
         if (!response.ok || result.error) {
            const errMsg = result.error ? result.error.message : "Unknown Error";
            alert(`AI Error (${response.status}): ${errMsg}`);
@@ -83,7 +81,6 @@ export default function Dashboard({ data }) {
 
       } catch (error) {
         console.error("Gemini Error:", error);
-        // ถ้าเป็น 404 แสดงว่า URL ผิด, ถ้า 400 แปลว่ารูปมีปัญหา
         if (!error.message.includes("AI Error")) {
             alert(`ระบบขัดข้อง: ${error.message}`);
         }
@@ -99,7 +96,6 @@ export default function Dashboard({ data }) {
     }
   };
 
-  // ... (ส่วน Return UI เหมือนเดิมเป๊ะ ก๊อปอันเก่ามาวางต่อได้เลย หรือจะให้ผมพิมพ์ให้ครบก็ได้ครับ) ...
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
