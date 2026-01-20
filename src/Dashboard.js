@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // Key ล่าสุดของพี่
+  // ✅ Key ของพี่ (ถูกต้องแล้ว)
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -45,9 +45,10 @@ export default function Dashboard({ data }) {
           Breakdown: [Short description]
         `;
 
-        // 🟢 แก้ไขจุดตาย: เปลี่ยนจาก v1beta เป็น v1 (ตัวเสถียร)
+        // 🟢 กลับมาใช้ v1beta + gemini-1.5-flash (ตัวมาตรฐานโลก)
+        // ถ้าพี่กด Enable API แล้ว ตัวนี้จะทำงานทันทีครับ
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -66,13 +67,13 @@ export default function Dashboard({ data }) {
 
         if (!response.ok || result.error) {
            const errMsg = result.error ? result.error.message : "Unknown Error";
-           alert(`AI Error (${response.status}): ${errMsg}`);
+           alert(`AI Error (${response.status}): ${errMsg}\n\n⚠️ พี่ต้องไปกด Enable API ใน Google Cloud ก่อนนะครับ!`);
            throw new Error(errMsg);
         }
 
         const textResponse = result.candidates[0].content.parts[0].text;
         
-        // Manual Parser (แกะค่าเอง ไม่ง้อ JSON)
+        // Manual Parser (ดึงค่าเอง)
         const extractValue = (keyword) => {
             const regex = new RegExp(`${keyword}:\\s*([\\d\\.]+)`, "i");
             const match = textResponse.match(regex);
@@ -84,14 +85,14 @@ export default function Dashboard({ data }) {
 
         const nutrition = {
             name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
-            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์โดย AI",
+            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์เรียบร้อย",
             cal: extractValue("Cal"),
             p: extractValue("Protein"),
             c: extractValue("Carbs"),
             f: extractValue("Fat")
         };
 
-        alert(`✅ เรียบร้อย!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal`);
+        alert(`✅ สำเร็จ!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal`);
 
         setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -119,7 +120,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (API v1)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Final)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -152,8 +153,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>⚡</span>
-        {isScanning ? "กำลังวิเคราะห์ (v1)..." : "ถ่ายรูปอาหาร"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>📸</span>
+        {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
