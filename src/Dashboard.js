@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // ✅ ใช้ Key ใหม่ของพี่ (ผมใส่ให้แล้ว)
+  // Key ของพี่ตัวล่าสุด
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -31,24 +31,22 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 📝 Prompt แบบเดิม แต่สั่งให้ตอบแบบ Text ธรรมดา ไม่ต้อง JSON
+        // 📝 Prompt สำหรับ Gemini Pro (สั่งให้ตอบเป็น Pattern ชัดๆ)
         const prompt = `
-          Analyze this food image.
-          Identify the dish name in THAI (ชื่อเมนู).
-          Estimate calories, protein, carbs, and fat.
-          
-          Important: Please answer in this exact format:
-          Dish: [Dish Name]
-          Cal: [Number]
-          Protein: [Number]
-          Carbs: [Number]
-          Fat: [Number]
-          Breakdown: [Short description]
+          Look at this food image. Identify the Thai dish name and estimate nutrition.
+          Please reply in this exact format:
+          Name: [Thai Dish Name]
+          Cal: [Total Calories Number]
+          Protein: [Grams Number]
+          Carbs: [Grams Number]
+          Fat: [Grams Number]
+          Desc: [Short description in Thai]
         `;
 
-        // 🟢 เปลี่ยน URL เป็น v1beta (มาตรฐาน) และลบ generationConfig ออก (ตัวปัญหา)
+        // 🟢 เปลี่ยนโมเดลเป็น 'gemini-pro' (ตัว Classic ที่สุด)
+        // 🟢 ตัด generationConfig ทิ้ง เพื่อลดโอกาส Error
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -59,7 +57,6 @@ export default function Dashboard({ data }) {
                   { inline_data: { mime_type: file.type, data: base64Data } }
                 ]
               }]
-              // ❌ ลบ generationConfig ที่บังคับ JSON ออกแล้วครับ
             })
           }
         );
@@ -68,33 +65,41 @@ export default function Dashboard({ data }) {
 
         if (!response.ok || result.error) {
            const errMsg = result.error ? result.error.message : "Unknown Error";
+           // ถ้ายัง Error 404 อีก แสดงว่าเป็นที่ Key ไม่เปิด API แล้วครับ
            alert(`AI Error (${response.status}): ${errMsg}`);
            throw new Error(errMsg);
         }
 
+        // เช็คว่า AI ตอบกลับมาไหม
+        if (!result.candidates || !result.candidates[0].content) {
+            alert("AI ไม่ตอบกลับ (อาจจะมองไม่เห็นรูป)");
+            return;
+        }
+
         const textResponse = result.candidates[0].content.parts[0].text;
         
-        // 🛠️ ระบบแกะค่าจาก Text เอง (Manual Parser)
-        // เพราะเราถอด JSON ออก เราเลยต้องดึงตัวเลขเอง
-        const extractValue = (keyword) => {
-            const regex = new RegExp(`${keyword}:\\s*([\\d\\.]+)`, "i");
+        // 🛠️ ตัวแกะข้อความ (Manual Parser)
+        const extract = (key) => {
+            const regex = new RegExp(`${key}:\\s*(.+)`, "i");
             const match = textResponse.match(regex);
-            return match ? parseFloat(match[1]) : 0;
+            return match ? match[1].trim() : null;
         };
 
-        const nameMatch = textResponse.match(/Dish:\s*(.+)/i);
-        const breakdownMatch = textResponse.match(/Breakdown:\s*(.+)/i);
+        const extractNum = (key) => {
+            const val = extract(key);
+            return val ? parseFloat(val.replace(/[^0-9.]/g, "")) : 0;
+        };
 
         const nutrition = {
-            name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
-            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์โดย AI",
-            cal: extractValue("Cal"),
-            p: extractValue("Protein"),
-            c: extractValue("Carbs"),
-            f: extractValue("Fat")
+            name: extract("Name") || "อาหาร (AI)",
+            desc: extract("Desc") || "วิเคราะห์สำเร็จ",
+            cal: extractNum("Cal"),
+            p: extractNum("Protein"),
+            c: extractNum("Carbs"),
+            f: extractNum("Fat")
         };
 
-        alert(`✅ สำเร็จ!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal\n(P: ${nutrition.p} | C: ${nutrition.c} | F: ${nutrition.f})`);
+        alert(`✅ เรียบร้อย!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal\n(P:${nutrition.p} C:${nutrition.c} F:${nutrition.f})`);
 
         setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -105,7 +110,6 @@ export default function Dashboard({ data }) {
 
       } catch (error) {
         console.error("Gemini Error:", error);
-        // Alert ไปแล้วข้างบน
       } finally {
         setIsScanning(false);
       }
@@ -123,7 +127,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Final Fix)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI Classic)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -156,8 +160,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>📸</span>
-        {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>📷</span>
+        {isScanning ? "กำลังวิเคราะห์ (Classic)..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
