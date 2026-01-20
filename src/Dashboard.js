@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // ✅ Key ของพี่ (ถูกต้องแล้ว)
+  // Key เดิมของพี่ (ถูกต้องแล้ว)
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -32,23 +32,19 @@ export default function Dashboard({ data }) {
 
       try {
         const prompt = `
-          Analyze this food image.
-          Identify the dish name in THAI (ชื่อเมนู).
-          Estimate calories, protein, carbs, and fat.
-          
-          Reply format:
-          Dish: [Dish Name]
+          Analyze this food image. Identify the Thai dish name and estimate nutrition.
+          Format:
+          Dish: [Name]
           Cal: [Number]
           Protein: [Number]
           Carbs: [Number]
           Fat: [Number]
-          Breakdown: [Short description]
         `;
 
-        // 🟢 กลับมาใช้ v1beta + gemini-1.5-flash (ตัวมาตรฐานโลก)
-        // ถ้าพี่กด Enable API แล้ว ตัวนี้จะทำงานทันทีครับ
+        // 🟢 เปลี่ยนมาใช้ 'gemini-pro' (รุ่น 1.0) ตัวนี้เสถียรสุดๆ
+        // 🟢 ใช้ URL แบบ v1beta มาตรฐาน
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -67,29 +63,26 @@ export default function Dashboard({ data }) {
 
         if (!response.ok || result.error) {
            const errMsg = result.error ? result.error.message : "Unknown Error";
-           alert(`AI Error (${response.status}): ${errMsg}\n\n⚠️ พี่ต้องไปกด Enable API ใน Google Cloud ก่อนนะครับ!`);
+           // ถ้ายัง Error แสดงว่ายังไม่ได้เปิด Generative Language API
+           alert(`⚠️ พี่ต้องไปเปิด "Generative Language API" ก่อนครับ!\n\nError: ${errMsg}`);
            throw new Error(errMsg);
         }
 
         const textResponse = result.candidates[0].content.parts[0].text;
         
-        // Manual Parser (ดึงค่าเอง)
-        const extractValue = (keyword) => {
-            const regex = new RegExp(`${keyword}:\\s*([\\d\\.]+)`, "i");
-            const match = textResponse.match(regex);
+        // ตัวแกะค่า (Manual Parser)
+        const extract = (k) => {
+            const match = textResponse.match(new RegExp(`${k}:\\s*([\\d\\.]+)`, "i"));
             return match ? parseFloat(match[1]) : 0;
         };
-
         const nameMatch = textResponse.match(/Dish:\s*(.+)/i);
-        const breakdownMatch = textResponse.match(/Breakdown:\s*(.+)/i);
 
         const nutrition = {
             name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
-            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์เรียบร้อย",
-            cal: extractValue("Cal"),
-            p: extractValue("Protein"),
-            c: extractValue("Carbs"),
-            f: extractValue("Fat")
+            cal: extract("Cal"),
+            p: extract("Protein"),
+            c: extract("Carbs"),
+            f: extract("Fat")
         };
 
         alert(`✅ สำเร็จ!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal`);
@@ -120,7 +113,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Final)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Gemini Pro)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
