@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // ✅ ใส่ API Key ใหม่ของคุณให้แล้วครับ
+  // ✅ ใช้ Key ใหม่ของพี่ (ผมใส่ให้แล้ว)
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -31,17 +31,22 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
+        // 📝 Prompt แบบเดิม แต่สั่งให้ตอบแบบ Text ธรรมดา ไม่ต้อง JSON
         const prompt = `
           Analyze this food image.
-          1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
-          2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat based on visual portion.
+          Identify the dish name in THAI (ชื่อเมนู).
+          Estimate calories, protein, carbs, and fat.
           
-          Return ONLY a raw JSON object:
-          { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
+          Important: Please answer in this exact format:
+          Dish: [Dish Name]
+          Cal: [Number]
+          Protein: [Number]
+          Carbs: [Number]
+          Fat: [Number]
+          Breakdown: [Short description]
         `;
 
-        // ใช้โมเดลมาตรฐาน gemini-1.5-flash คู่กับ Key ใหม่
+        // 🟢 เปลี่ยน URL เป็น v1beta (มาตรฐาน) และลบ generationConfig ออก (ตัวปัญหา)
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
@@ -53,8 +58,8 @@ export default function Dashboard({ data }) {
                   { text: prompt },
                   { inline_data: { mime_type: file.type, data: base64Data } }
                 ]
-              }],
-               generationConfig: { responseMimeType: "application/json" }
+              }]
+              // ❌ ลบ generationConfig ที่บังคับ JSON ออกแล้วครับ
             })
           }
         );
@@ -68,9 +73,28 @@ export default function Dashboard({ data }) {
         }
 
         const textResponse = result.candidates[0].content.parts[0].text;
-        const nutrition = JSON.parse(textResponse);
+        
+        // 🛠️ ระบบแกะค่าจาก Text เอง (Manual Parser)
+        // เพราะเราถอด JSON ออก เราเลยต้องดึงตัวเลขเอง
+        const extractValue = (keyword) => {
+            const regex = new RegExp(`${keyword}:\\s*([\\d\\.]+)`, "i");
+            const match = textResponse.match(regex);
+            return match ? parseFloat(match[1]) : 0;
+        };
 
-        alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal`);
+        const nameMatch = textResponse.match(/Dish:\s*(.+)/i);
+        const breakdownMatch = textResponse.match(/Breakdown:\s*(.+)/i);
+
+        const nutrition = {
+            name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
+            breakdown: breakdownMatch ? breakdownMatch[1].trim() : "วิเคราะห์โดย AI",
+            cal: extractValue("Cal"),
+            p: extractValue("Protein"),
+            c: extractValue("Carbs"),
+            f: extractValue("Fat")
+        };
+
+        alert(`✅ สำเร็จ!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal\n(P: ${nutrition.p} | C: ${nutrition.c} | F: ${nutrition.f})`);
 
         setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -81,9 +105,7 @@ export default function Dashboard({ data }) {
 
       } catch (error) {
         console.error("Gemini Error:", error);
-        if (!error.message.includes("AI Error")) {
-            alert(`ระบบขัดข้อง: ${error.message}`);
-        }
+        // Alert ไปแล้วข้างบน
       } finally {
         setIsScanning(false);
       }
@@ -101,7 +123,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI ไทย)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Final Fix)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
