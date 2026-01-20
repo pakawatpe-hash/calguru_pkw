@@ -41,9 +41,9 @@ export default function Dashboard({ data }) {
           { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
         `;
 
-        // 🟢 แก้ไขจุดตาย: เปลี่ยนเป็น 'gemini-1.5-flash-latest' ให้ชัวร์ที่สุด
+        // 🟢 แก้ไขชื่อรุ่นเป็น 'gemini-1.5-flash-001' (ตัวเสถียรที่สุด)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
