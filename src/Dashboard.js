@@ -13,7 +13,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // 🔑 API KEY ของคุณ (ใส่ให้แล้วครับ)
+  // 🔑 API KEY ของคุณ (ใช้ตัวเดิม)
   const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -32,17 +32,17 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 🔥 PROMPT สั่งให้ AI ตอบเป็นภาษาไทย (THAI)
+        // 🔥 PROMPT สั่งให้ AI ตอบเป็นภาษาไทย
         const prompt = `
           Analyze this food image.
           1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
           2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat based on the visual portion.
+          3. Calculate total calories, protein, carbs, and fat.
           
           Return ONLY a raw JSON object with this structure:
           {
             "name": "ชื่อเมนู (ภาษาไทย)",
-            "breakdown": "รายการส่วนประกอบและปริมาณ (เขียนเป็นภาษาไทย เช่น ข้าวสวย 2 ทัพพี, ไข่ดาว 1 ฟอง)",
+            "breakdown": "รายการส่วนประกอบและปริมาณ (ภาษาไทย)",
             "cal": number,
             "p": number,
             "c": number,
@@ -50,8 +50,9 @@ export default function Dashboard({ data }) {
           }
         `;
 
+        // 🛠️ แก้ไขจุดที่ Error 404: เปลี่ยนชื่อโมเดลเป็น 'gemini-1.5-flash-latest'
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -69,6 +70,10 @@ export default function Dashboard({ data }) {
           }
         );
 
+        if (!response.ok) {
+           throw new Error(`Server responded with ${response.status}`);
+        }
+
         const result = await response.json();
         const textResponse = result.candidates[0].content.parts[0].text;
         const nutrition = JSON.parse(textResponse);
@@ -76,8 +81,7 @@ export default function Dashboard({ data }) {
         if (nutrition.error) {
           alert("AI มองไม่เห็นอาหารในภาพครับ");
         } else {
-          // แสดงผลเป็นภาษาไทย
-          alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal\n(โปรตีน: ${nutrition.p}g | คาร์บ: ${nutrition.c}g | ไขมัน: ${nutrition.f}g)`);
+          alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal\n(P: ${nutrition.p}g | C: ${nutrition.c}g | F: ${nutrition.f}g)`);
 
           setEaten(prev => ({
             cal: prev.cal + Math.round(nutrition.cal),
@@ -88,8 +92,8 @@ export default function Dashboard({ data }) {
         }
 
       } catch (error) {
-        console.error("Error:", error);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ AI");
+        console.error("Gemini Error:", error);
+        alert(`เกิดข้อผิดพลาด: ${error.message} (ลองถ่ายใหม่ดูครับ)`);
       } finally {
         setIsScanning(false);
       }
@@ -156,7 +160,7 @@ export default function Dashboard({ data }) {
   );
 }
 
-// --- Styles ---
+// --- Styles (เหมือนเดิม) ---
 const resetBtnStyle = { backgroundColor: "#f0f0f0", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: "600", color: "#666", cursor: "pointer" };
 function MacroCard({ label, eaten, target, color, unit }) {
   const barWidth = (eaten / target) * 100;
