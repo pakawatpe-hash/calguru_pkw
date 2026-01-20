@@ -13,7 +13,7 @@ export default function Dashboard({ data }) {
   }, [eaten]);
 
   // API Key เดิมของคุณ
-  const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
+  const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
   const progress = (eaten.cal / data.targetCal) * 100;
@@ -176,3 +176,4 @@ const dot = { width: "8px", height: "8px", borderRadius: "50%", marginBottom: "8
 const barBg = { width: "100%", height: "4px", backgroundColor: "#F0F0F0", borderRadius: "2px", overflow: "hidden" };
 const barFill = { height: "100%", transition: "0.5s" };
 const fabStyle = { position: "fixed", bottom: "30px", left: "50%", transform: "translateX(-50%)", width: "85%", maxWidth: "340px", backgroundColor: "#FF7A30", color: "white", padding: "18px", borderRadius: "20px", border: "none", fontWeight: "700", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 10px 20px rgba(0,0,0,0.2)" };
+
