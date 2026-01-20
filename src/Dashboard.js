@@ -12,7 +12,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // API Key เดิมของคุณ
+  // ✅ ใส่ API Key ใหม่ของคุณให้แล้วครับ
   const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -41,9 +41,9 @@ export default function Dashboard({ data }) {
           { "name": "...", "breakdown": "...", "cal": 0, "p": 0, "c": 0, "f": 0 }
         `;
 
-        // 🟢 เปลี่ยนมาใช้ 'gemini-1.5-pro' (ตัวเทพที่ใช้ใน Dr.Pharma)
+        // ใช้โมเดลมาตรฐาน gemini-1.5-flash คู่กับ Key ใหม่
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -101,7 +101,7 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Pro AI)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (AI ไทย)</h2>
         </div>
         <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
       </div>
@@ -134,8 +134,8 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>💊</span>
-        {isScanning ? "กำลังวิเคราะห์ (Pro)..." : "ถ่ายรูปอาหาร"}
+        <span style={{ fontSize: "24px", marginRight: "10px" }}>📸</span>
+        {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
           <input
             type="file"
@@ -176,4 +176,3 @@ const dot = { width: "8px", height: "8px", borderRadius: "50%", marginBottom: "8
 const barBg = { width: "100%", height: "4px", backgroundColor: "#F0F0F0", borderRadius: "2px", overflow: "hidden" };
 const barFill = { height: "100%", transition: "0.5s" };
 const fabStyle = { position: "fixed", bottom: "30px", left: "50%", transform: "translateX(-50%)", width: "85%", maxWidth: "340px", backgroundColor: "#FF7A30", color: "white", padding: "18px", borderRadius: "20px", border: "none", fontWeight: "700", display: "flex", justifyContent: "center", alignItems: "center", boxShadow: "0 10px 20px rgba(0,0,0,0.2)" };
-
