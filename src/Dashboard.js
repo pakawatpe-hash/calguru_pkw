@@ -13,7 +13,7 @@ export default function Dashboard({ data }) {
     localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
   }, [eaten]);
 
-  // 🔑 API KEY ของคุณ
+  // 🔑 API KEY ของคุณ (ใส่ให้แล้วครับ)
   const GEMINI_API_KEY = "AIzaSyDaEgi9weXg4y_3OMZs5lVo_T5Odc0OGA0"; 
 
   const remainingCal = data.targetCal - eaten.cal;
@@ -32,12 +32,12 @@ export default function Dashboard({ data }) {
       const base64Data = reader.result.split(",")[1];
 
       try {
-        // 🔥 แก้ไข PROMPT: สั่งให้ตอบเป็นภาษาไทยเท่านั้น (Respond in Thai)
+        // 🔥 PROMPT สั่งให้ AI ตอบเป็นภาษาไทย (THAI)
         const prompt = `
           Analyze this food image.
           1. Identify the dish name in THAI language (ชื่อเมนูภาษาไทย).
           2. Estimate the portion size and breakdown components in THAI (ส่วนประกอบ).
-          3. Calculate total calories, protein, carbs, and fat.
+          3. Calculate total calories, protein, carbs, and fat based on the visual portion.
           
           Return ONLY a raw JSON object with this structure:
           {
@@ -76,7 +76,7 @@ export default function Dashboard({ data }) {
         if (nutrition.error) {
           alert("AI มองไม่เห็นอาหารในภาพครับ");
         } else {
-          // 🇹🇭 แสดงผลเป็นภาษาไทย
+          // แสดงผลเป็นภาษาไทย
           alert(`เมนู: ${nutrition.name}\n\n🔍 วิเคราะห์:\n${nutrition.breakdown}\n\n🔥 พลังงาน: ${nutrition.cal} kcal\n(โปรตีน: ${nutrition.p}g | คาร์บ: ${nutrition.c}g | ไขมัน: ${nutrition.f}g)`);
 
           setEaten(prev => ({
@@ -156,7 +156,7 @@ export default function Dashboard({ data }) {
   );
 }
 
-// --- Styles (เหมือนเดิม) ---
+// --- Styles ---
 const resetBtnStyle = { backgroundColor: "#f0f0f0", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: "600", color: "#666", cursor: "pointer" };
 function MacroCard({ label, eaten, target, color, unit }) {
   const barWidth = (eaten / target) * 100;
