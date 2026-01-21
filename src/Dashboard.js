@@ -2,21 +2,54 @@ import React, { useState, useEffect } from "react";
 
 export default function Dashboard({ data }) {
   const [eaten, setEaten] = useState(() => {
-    const saved = localStorage.getItem("daily_eaten_record_gemini");
+    const saved = localStorage.getItem("daily_eaten_record");
     return saved ? JSON.parse(saved) : { cal: 0, p: 0, c: 0, f: 0 };
   });
 
   const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("daily_eaten_record_gemini", JSON.stringify(eaten));
+    localStorage.setItem("daily_eaten_record", JSON.stringify(eaten));
   }, [eaten]);
 
-  // Key เดิมของพี่ (ถูกต้องแล้ว)
-  const GEMINI_API_KEY = "AIzaSyDLmU4gcLNsx4HfgPGK_0rTZh9wXcGsqSA"; 
+  // 🔑 คีย์ชุดเก่าของพี่ (Google Vision + Spoonacular)
+  const GOOGLE_API_KEY = "AIzaSyC3aKkGUC-T9dJEgh9rX1uPuf8_YVmszgQ";
+  const SPOONACULAR_KEY = "3d47002b56ab44109678e493199fa3de";
 
   const remainingCal = data.targetCal - eaten.cal;
   const progress = (eaten.cal / data.targetCal) * 100;
+
+  // 🇹🇭 ฐานข้อมูลคำแปลเมนูไทย (Original Logic)
+  const THAI_MENU_MAP = {
+    basil: "Thai Basil Chicken with Rice",
+    "stir-frying": "Stir-fried meat with basil",
+    curry: "Thai Green Curry",
+    "pad thai": "Pad Thai noodles",
+    "som tum": "Thai Papaya Salad",
+    "tom yum": "Tom Yum Goong",
+    egg: "Fried Egg",
+    pork: "Grilled Pork",
+    rice: "Steamed White Rice",
+  };
+
+  const getRealNutrition = async (foodName) => {
+    const searchQuery = THAI_MENU_MAP[foodName.toLowerCase()] || foodName;
+    try {
+      const res = await fetch(
+        `https://api.spoonacular.com/recipes/guessNutrition?title=${searchQuery}&apiKey=${SPOONACULAR_KEY}`
+      );
+      const data = await res.json();
+      return {
+        name: searchQuery,
+        cal: data.calories.value,
+        p: data.protein.value,
+        c: data.carbs.value,
+        f: data.fat.value,
+      };
+    } catch (err) {
+      return null;
+    }
+  };
 
   const handleScan = async (event) => {
     if (isScanning) return;
@@ -24,78 +57,74 @@ export default function Dashboard({ data }) {
     if (!file) return;
 
     setIsScanning(true);
-
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onloadend = async () => {
       const base64Data = reader.result.split(",")[1];
-
       try {
-        const prompt = `
-          Analyze this food image. Identify the Thai dish name and estimate nutrition.
-          Format:
-          Dish: [Name]
-          Cal: [Number]
-          Protein: [Number]
-          Carbs: [Number]
-          Fat: [Number]
-        `;
-
-        // 🟢 เปลี่ยนมาใช้ 'gemini-pro' (รุ่น 1.0) ตัวนี้เสถียรสุดๆ
-        // 🟢 ใช้ URL แบบ v1beta มาตรฐาน
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+        // 1. ส่งรูปไปให้ Google Vision ดูว่าคืออะไร
+        const visionRes = await fetch(
+          `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_API_KEY}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: prompt },
-                  { inline_data: { mime_type: file.type, data: base64Data } }
-                ]
-              }]
-            })
+              requests: [
+                {
+                  image: { content: base64Data },
+                  features: [{ type: "LABEL_DETECTION", maxResults: 15 }],
+                },
+              ],
+            }),
           }
         );
+        const visionData = await visionRes.json();
+        const labels = visionData.responses[0].labelAnnotations;
 
-        const result = await response.json();
+        // 2. กรองคำที่ไม่ใช่ชื่ออาหารออก
+        const commonWords = [
+          "food", "dish", "cuisine", "recipe", "plate", 
+          "meal", "tableware", "produce", "ingredient", "cooking"
+        ];
+        const targetItems = labels
+          .filter((l) => !commonWords.includes(l.description.toLowerCase()))
+          .slice(0, 4);
 
-        if (!response.ok || result.error) {
-           const errMsg = result.error ? result.error.message : "Unknown Error";
-           // ถ้ายัง Error แสดงว่ายังไม่ได้เปิด Generative Language API
-           alert(`⚠️ พี่ต้องไปเปิด "Generative Language API" ก่อนครับ!\n\nError: ${errMsg}`);
-           throw new Error(errMsg);
+        let mealSum = { cal: 0, p: 0, c: 0, f: 0 };
+        let itemsDetected = [];
+
+        // 3. เอาชื่ออาหารไปถาม Spoonacular เพื่อขอแคลอรี่
+        for (let item of targetItems) {
+          const nut = await getRealNutrition(item.description);
+          if (nut) {
+            let weight = 0.5;
+            const name = item.description.toLowerCase();
+            if (name.includes("rice")) weight = 0.5;
+            if (name.includes("chicken") || name.includes("basil") || name.includes("pork")) weight = 0.6;
+            if (name.includes("egg")) weight = 1.0;
+
+            mealSum.cal += nut.cal * weight;
+            mealSum.p += nut.p * weight;
+            mealSum.c += nut.c * weight;
+            mealSum.f += nut.f * weight;
+            itemsDetected.push(nut.name);
+          }
         }
 
-        const textResponse = result.candidates[0].content.parts[0].text;
-        
-        // ตัวแกะค่า (Manual Parser)
-        const extract = (k) => {
-            const match = textResponse.match(new RegExp(`${k}:\\s*([\\d\\.]+)`, "i"));
-            return match ? parseFloat(match[1]) : 0;
-        };
-        const nameMatch = textResponse.match(/Dish:\s*(.+)/i);
-
-        const nutrition = {
-            name: nameMatch ? nameMatch[1].trim() : "อาหาร (AI)",
-            cal: extract("Cal"),
-            p: extract("Protein"),
-            c: extract("Carbs"),
-            f: extract("Fat")
-        };
-
-        alert(`✅ สำเร็จ!\nเมนู: ${nutrition.name}\n🔥 ${nutrition.cal} kcal`);
-
-        setEaten(prev => ({
-            cal: prev.cal + Math.round(nutrition.cal),
-            p: prev.p + Math.round(nutrition.p),
-            c: prev.c + Math.round(nutrition.c),
-            f: prev.f + Math.round(nutrition.f),
-        }));
-
+        if (itemsDetected.length > 0) {
+          alert(`ตรวจพบ: ${itemsDetected.join(", ")}\nพลังงานรวม: ${Math.round(mealSum.cal)} kcal`);
+          setEaten((prev) => ({
+            cal: prev.cal + Math.round(mealSum.cal),
+            p: prev.p + Math.round(mealSum.p),
+            c: prev.c + Math.round(mealSum.c),
+            f: prev.f + Math.round(mealSum.f),
+          }));
+        } else {
+            alert("ไม่พบข้อมูลโภชนาการสำหรับรูปนี้");
+        }
       } catch (error) {
-        console.error("Gemini Error:", error);
+        alert("การสแกนขัดข้อง");
+        console.error(error);
       } finally {
         setIsScanning(false);
       }
@@ -103,7 +132,7 @@ export default function Dashboard({ data }) {
   };
 
   const handleReset = () => {
-    if (window.confirm("ล้างข้อมูลวันนี้ทั้งหมด?")) {
+    if (window.confirm("คุณต้องการล้างข้อมูลวันนี้หรือไม่?")) {
       setEaten({ cal: 0, p: 0, c: 0, f: 0 });
     }
   };
@@ -113,9 +142,9 @@ export default function Dashboard({ data }) {
       <div style={headerStyle}>
         <div>
           <p style={{ color: "#999", margin: 0, fontSize: "14px" }}>สวัสดีครับ!</p>
-          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>บันทึกอาหาร (Gemini Pro)</h2>
+          <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700" }}>ระบบคำนวน Calorie</h2>
         </div>
-        <button onClick={handleReset} style={resetBtnStyle}>Reset</button>
+        <button onClick={handleReset} style={resetBtnStyle}>เริ่มวันใหม่</button>
       </div>
 
       <div style={mainCardStyle}>
@@ -146,23 +175,17 @@ export default function Dashboard({ data }) {
       </div>
 
       <label style={{...fabStyle, opacity: isScanning ? 0.7 : 1, cursor: isScanning ? "wait" : "pointer"}}>
-        <span style={{ fontSize: "24px", marginRight: "10px" }}>📸</span>
+        <span style={{ fontSize: "20px", marginRight: "10px" }}>📷</span>
         {isScanning ? "กำลังวิเคราะห์..." : "ถ่ายรูปอาหาร"}
         {!isScanning && (
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleScan}
-            style={{ display: "none" }}
-          />
+          <input type="file" accept="image/*" capture="environment" onChange={handleScan} style={{ display: "none" }} />
         )}
       </label>
     </div>
   );
 }
 
-// Styles
+// --- Styles ---
 const resetBtnStyle = { backgroundColor: "#f0f0f0", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: "600", color: "#666", cursor: "pointer" };
 function MacroCard({ label, eaten, target, color, unit }) {
   const barWidth = (eaten / target) * 100;
